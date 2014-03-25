@@ -1,32 +1,9 @@
 <?php
-
 chdir('../../../../');
 require('includes/application_top.php');
 if (!defined('MODULE_PAYMENT_GOCOIN_STATUS') || (MODULE_PAYMENT_GOCOIN_STATUS != 'True')) {
     exit;
 }
-if ($result == 'VERIFIED') {
-    
-} else {
-    if (tep_not_null(MODULE_PAYMENT_PAYPAL_STANDARD_DEBUG_EMAIL)) {
-        $email_body = '$HTTP_POST_VARS:' . "\n\n";
-
-        reset($HTTP_POST_VARS);
-        while (list($key, $value) = each($HTTP_POST_VARS)) {
-            $email_body .= $key . '=' . $value . "\n";
-        }
-
-        $email_body .= "\n" . '$HTTP_GET_VARS:' . "\n\n";
-
-        reset($HTTP_GET_VARS);
-        while (list($key, $value) = each($HTTP_GET_VARS)) {
-            $email_body .= $key . '=' . $value . "\n";
-        }
-
-        tep_mail('', MODULE_PAYMENT_PAYPAL_STANDARD_DEBUG_EMAIL, 'PayPal IPN Invalid Process', $email_body, STORE_OWNER, STORE_OWNER_EMAIL_ADDRESS);
-    }
-}
-
 function callback() {
     _paymentStandard();
 }
@@ -67,8 +44,7 @@ function _paymentStandard() {
         $transction_id              = $response->payload->id;
         $total                      = $response->payload->base_price;
         $status                     = $response->payload->status;
-        $currency_id                = $response->payload->user_defined_1;
-        $secure_key                 = $response->payload->user_defined_2;
+        
         $currency                   = $response->payload->base_price_currency;
         $currency_type              = $response->payload->price_currency;
         $invoice_time               = $response->payload->created_at;
@@ -78,7 +54,7 @@ function _paymentStandard() {
         $btc_price                  = $response->payload->price;
         $price                      = $response->payload->base_price;
         $url                        = "https://gateway.gocoin.com/merchant/" . $merchant_id . "/invoices/" . $transction_id;
-        $customer                   = $response->payload->user_defined_1;
+            
         switch ($status) {
             case 'paid':
                 $cur_sts = $sts_processing;
@@ -108,7 +84,7 @@ function _paymentStandard() {
         if ($event == 'invoice_created'){
             if(isset($order_id) && is_numeric($order_id) && ($order_id > 0))
             {
-            $order_query = tep_db_query("select orders_status, currency, currency_value from " . TABLE_ORDERS . " where orders_id = '" . $order_id . "' and customers_id = '" . (int) $customer . "'");
+            $order_query = tep_db_query("select orders_status, currency, currency_value from " . TABLE_ORDERS . " where orders_id = '" . $order_id . "'");
             if (tep_db_num_rows($order_query) > 0) {
                 $order = tep_db_fetch_array($order_query);
 
@@ -121,8 +97,9 @@ function _paymentStandard() {
 
                     tep_db_perform(TABLE_ORDERS_STATUS_HISTORY, $sql_data_array);
 
-
+                    if($status=='paid'){
                     tep_db_query("update " . TABLE_ORDERS . " set orders_status = '" . (MODULE_PAYMENT_GOCOIN_ORDER_STATUS_ID > 0 ? (int) MODULE_PAYMENT_GOCOIN_ORDER_STATUS_ID : (int) DEFAULT_ORDERS_STATUS_ID) . "', last_modified = now() where orders_id = '" . (int) $order_id . "'");
+                    }
                 }
 
                 $total_query = tep_db_query("select value from " . TABLE_ORDERS_TOTAL . " where orders_id = '" . $order_id . "' and class = 'ot_total' limit 1");
@@ -136,7 +113,7 @@ function _paymentStandard() {
                     'date_added' => 'now()',
                     'customer_notified' => '0',
                     'comments' =>  $comment_status );
-                var_dump($sql_data_array);
+            
 
                 tep_db_perform(TABLE_ORDERS_STATUS_HISTORY, $sql_data_array);
             }

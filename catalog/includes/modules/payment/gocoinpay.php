@@ -1,15 +1,17 @@
 <?php
     /* $Id$ */
-    class gocoin {
+
+
+    class gocoinpay {
         var $code, $title, $description, $enabled;
         var $pay_url = 'https://gateway.gocoin.com/merchant/';
         var $domain = '';
         var $baseUrl = '';
 
         // class constructor
-        function gocoin() {
+        function gocoinpay() {
             global $order;
-            $this->code = 'gocoin';
+            $this->code = 'gocoinpay';
             $this->domain = ($request_type == 'SSL') ? HTTPS_SERVER : HTTP_SERVER;
             $this->baseUrl = $this->domain . DIR_WS_CATALOG;
 
@@ -54,7 +56,8 @@
             return false;
         }
 
-        function selection() {
+        function selection() { 
+            
             return array('id' => $this->code,
                 'module' => $this->public_title);
         }
@@ -72,9 +75,9 @@
 
         function confirmation() {
             global $order, $cartID, $cart_Gocoin_ID, $customer_id, $languages_id, $order_total_modules;
-            
+        
             $pay_type[] = array('id' => 'BTC', 'text' => 'Bitcoin');
-            $pay_type[] = array('id' => 'LTC', 'text' => 'Litcoin');
+            $pay_type[] = array('id' => 'LTC', 'text' => 'Litecoin');
             if (tep_session_is_registered('cartID')) {
                 $insert_order = false;
             }
@@ -243,6 +246,8 @@
                     array('title' => MODULE_PAYMENT_GOCOIN_PAYTYPE,
                         'field' => tep_draw_pull_down_menu('pay_type', $pay_type)),
             ));
+            
+            
             return $confirmation;
         }
 
@@ -257,8 +262,9 @@
             $coin_currency = isset($_POST['pay_type']) && !empty($_POST['pay_type']) ? $_POST['pay_type'] : '';
 
             $customer = $order->billing['firstname'] . ' ' . $order->billing['lastname'];
-            $callback_url = $this->baseUrl . "ext/modules/payment/gocoin/callback_url.php";
+            $callback_url = $this->baseUrl . "ext/modules/payment/gocoinpay/callback_url.php";
 
+            include DIR_WS_INCLUDES . 'gocoinlib/src/GoCoin.php';
             $return_url = $this->baseUrl . "checkout_success.php";
             $options = array(
                 'price_currency' => $coin_currency,
@@ -276,14 +282,13 @@
                 'customer_postal_code' => $order->customer['postcode'],
                 'customer_country' => $order->billing['country']['title'],
                 'customer_phone' => $order->customer['telephone'],
-                'customer_email' => $order->customer['email_address'],
-                "user_defined_1" => $customer_id,
-                "user_defined_2" => " ",
-            );
-            $data_string = json_encode($options);
-            $merchant_id = MODULE_PAYMENT_GOCOIN_MERCHANT_ID;
-            $gocoin_access_key = MODULE_PAYMENT_GOCOIN_ACCESS_KEY;
-            $gocoin_token = MODULE_PAYMENT_GOCOIN_TOKEN;
+                'customer_email' => $order->customer['email_address'],  );
+            
+            
+            //$data_string = json_encode($options);
+            $client_id= MODULE_PAYMENT_GOCOIN_MERCHANT_ID;
+            $client_secret = MODULE_PAYMENT_GOCOIN_ACCESS_KEY;
+            $access_token = MODULE_PAYMENT_GOCOIN_TOKEN;
             $gocoin_url = $this->pay_url;
 
             $arr = array(
@@ -291,51 +296,38 @@
                 'client_secret' => $gocoin_access_key,
                 'scope' => "user_read_write+merchant_read_write+invoice_read_write",);
 
-
-            include DIR_WS_INCLUDES . 'gocoinlib/src/client.php';
-            $client = new Client($arr);
-            $client->setToken($gocoin_token);
-
-            if (!$client) {
-                $result = 'error';
-                $json['error'] = 'GoCoin does not permit';
-            }
-            $user = $client->api->user->self();
-
-            if (!$user) {
-                $result = 'error';
-                $json['error'] = $client->getError();
-                
-            } else {
-                $invoice_params = array(
-                    'id' => $user->merchant_id,
-                    'data' => $data_string
-                );
-                if (!$invoice_params) {
-                    $result = 'error';
-                    $json['error'] = $client->getError();
-                }
-                $invoice = $client->api->invoices->create($invoice_params);
-                
-                if (isset($invoice->errors)) {
-                    $result = 'error';
-                    $json['error'] = 'GoCoin does not permit';
-                } elseif (isset($invoice->error)) {
-                    $result = 'error';
-                    $json['error'] = $invoice->error;
-                } elseif (isset($invoice->merchant_id) && $invoice->merchant_id != '' && isset($invoice->id) && $invoice->id != '') {
-                    $url = $gocoin_url . $invoice->merchant_id . "/invoices/" . $invoice->id;
-                    $result = 'success';
-                    $messages = 'success';
-                    $redirect = $url;
-                }
-
-                if (isset($result) && $result == 'success' && isset($url)) {
-                    $json['success'] = $url;
+         if (empty($client_id) || empty($client_secret) || empty($access_token)) {
+            $result = 'error';
+            $json['error'] = 'GoCoin Payment Paramaters not Set. Please report this to Site Administrator.';
+        } else {
+            try {
+                $user = GoCoin::getUser($access_token);
+                if ($user) {
+                    $merchant_id = $user->merchant_id;
+                    if (!empty($merchant_id)) {
+                        $invoice = GoCoin::createInvoice($access_token, $merchant_id, $options);
+                        if (isset($invoice->errors)) {
+                            $result = 'error';
+                            $json['error'] = 'GoCoin does not permit';
+                        } elseif (isset($invoice->error)) {
+                            $result = 'error';
+                            $json['error'] = $invoice->error;
+                        } elseif (isset($invoice->merchant_id) && $invoice->merchant_id != '' && isset($invoice->id) && $invoice->id != '') {
+                            $url = $gocoin_url . $invoice->merchant_id . "/invoices/" . $invoice->id;
+                            $result = 'success';
+                            $messages = 'success';
+                            $json['success'] = $url;
+                        }
+                    }
                 } else {
-                    $json['error'] = 'GoCoin does not permit';
+                    $result = 'error';
+                    $json['error'] = 'GoCoin Invalid Settings';
                 }
+            } catch (Exception $e) {
+                $result = 'error';
+                $json['error'] = 'GoCoin Invalid Settings';
             }
+        }
 
 
             if (isset($json['error']) && $json['error'] != '') {
@@ -369,8 +361,8 @@
         function install() {
             $btn_code = 'you can click button to get access token from gocoin.com <br><button style="" onclick="get_api_token(); return false;" class="scalable " title="Get API Token" id="btn_get_token"><span><span><span>Get API Token</span></span></span></button>';
             tep_db_query("insert into " . TABLE_CONFIGURATION . " (configuration_title, configuration_key, configuration_value, configuration_description, configuration_group_id, sort_order, set_function, date_added) values ('Enable Gocoin Method', 'MODULE_PAYMENT_GOCOIN_STATUS', 'False', 'Do you want to accept Gocoin Method payments?', '6', '0', 'tep_cfg_select_option(array(\'True\', \'False\'), ', now())");
-            tep_db_query("insert into " . TABLE_CONFIGURATION . " (configuration_title, configuration_key, configuration_value, configuration_description, configuration_group_id, sort_order, date_added) values ('Merchant ID', 'MODULE_PAYMENT_GOCOIN_MERCHANT_ID', '', '', '6', '0', now())");
-            tep_db_query("insert into " . TABLE_CONFIGURATION . " (configuration_title, configuration_key, configuration_value, configuration_description, configuration_group_id, sort_order, date_added) values ('Secrect Key', 'MODULE_PAYMENT_GOCOIN_ACCESS_KEY', '', '', '6', '0', now())");
+            tep_db_query("insert into " . TABLE_CONFIGURATION . " (configuration_title, configuration_key, configuration_value, configuration_description, configuration_group_id, sort_order, date_added) values ('Client ID', 'MODULE_PAYMENT_GOCOIN_MERCHANT_ID', '', '', '6', '0', now())");
+            tep_db_query("insert into " . TABLE_CONFIGURATION . " (configuration_title, configuration_key, configuration_value, configuration_description, configuration_group_id, sort_order, date_added) values ('Client Secret Key', 'MODULE_PAYMENT_GOCOIN_ACCESS_KEY', '', '', '6', '0', now())");
             tep_db_query("insert into " . TABLE_CONFIGURATION . " (configuration_title, configuration_key, configuration_value, configuration_description, configuration_group_id, sort_order, date_added) values ('Access Token', 'MODULE_PAYMENT_GOCOIN_TOKEN', '', '', '6', '0', now())");
             tep_db_query("insert into " . TABLE_CONFIGURATION . " (configuration_title, configuration_key, configuration_value, configuration_description, configuration_group_id, sort_order, date_added) values ('Sort order of display.', 'MODULE_PAYMENT_GOCOIN_SORT_ORDER', '0', 'Sort order of display. Lowest is displayed first.', '6', '0', now())");
             tep_db_query("insert into " . TABLE_CONFIGURATION . " (configuration_title, configuration_key, configuration_value, configuration_description, configuration_group_id, sort_order, set_function, use_function, date_added) values ('Set Deafult Order Status', 'MODULE_PAYMENT_GOCOIN_DEFAULT_ORDER_STATUS_ID', '0', 'Set the status of prepared orders made with this payment module to this value', '6', '0', 'tep_cfg_pull_down_order_statuses(', 'tep_get_order_status_name', now())");
@@ -457,15 +449,16 @@
 
                     if (!client_id) {
                         //alert("Please input "+mer_id+" !");
-                        alert("Please input Merchant Id !");
+                        alert("Please input  Client Id !");
                         return false;
                     }
                     if (!client_secret) {
                        // alert("Please input "+access_key+" !");
-                        alert("Please input Secret Key !");
+                        alert("Please input Client Secret Key !");
                         return false;
                     }
-                    var currentUrl =  base+ "ext/modules/payment/gocoin/showtoken.php";
+                    var currentUrl =  base+ "ext/modules/payment/gocoinpay/showtoken.php";
+                    //alert(currentUrl);
                     var url = "https://dashboard.gocoin.com/auth?response_type=code"
                                 + "&client_id=" + client_id
                                 + "&redirect_uri=" + currentUrl
