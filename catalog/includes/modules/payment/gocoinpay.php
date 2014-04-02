@@ -77,6 +77,7 @@
             global $order, $cartID, $cart_Gocoin_ID, $customer_id, $languages_id, $order_total_modules;
         
             $pay_type[] = array('id' => 'BTC', 'text' => 'Bitcoin');
+            $pay_type[] = array('id' => 'XDG', 'text' => 'Dogecoin');
             $pay_type[] = array('id' => 'LTC', 'text' => 'Litecoin');
             if (tep_session_is_registered('cartID')) {
                 $insert_order = false;
