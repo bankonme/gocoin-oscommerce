@@ -81,8 +81,8 @@ function _paymentStandard() {
                  switch($response->event)
                  {
                     case 'invoice_created':
-                    case 'invoice_payment_received':
                       break;
+                    case 'invoice_payment_received':
                     case 'invoice_ready_to_ship':
                             if (isset($order_id) && is_numeric($order_id) && ($order_id > 0)) {
                                 $cur_sts = $sts_processing;

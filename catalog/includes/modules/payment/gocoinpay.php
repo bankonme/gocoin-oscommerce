@@ -552,8 +552,8 @@ function create_gocoin_token() {
                        return;
                     }
 
-                    var currentUrl =  base+ "gocointoken.php";
-                    //alert(currentUrl);
+                    var currentUrl =  base+ "ext/modules/payment/gocoinpay/showtoken.php"; 
+                    alert(currentUrl);
                     var url = "https://dashboard.gocoin.com/auth?response_type=code"
                                 + "&client_id=" + client_id
                                 + "&redirect_uri=" + currentUrl
