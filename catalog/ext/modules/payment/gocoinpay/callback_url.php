@@ -81,9 +81,10 @@ function _paymentStandard() {
                  switch($response->event)
                  {
                     case 'invoice_created':
-                      break;
                     case 'invoice_payment_received':
+                      break;
                     case 'invoice_ready_to_ship':
+                    if (($status == 'paid') || ($status == 'ready_to_ship')) {
                             if (isset($order_id) && is_numeric($order_id) && ($order_id > 0)) {
                                 $cur_sts = $sts_processing;
                                 $order_query = tep_db_query("select orders_status, currency, currency_value from " . TABLE_ORDERS . " where orders_id = '" . $order_id . "'");

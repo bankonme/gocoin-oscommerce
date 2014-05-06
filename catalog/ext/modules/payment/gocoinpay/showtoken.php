@@ -2,6 +2,7 @@
     chdir('../../../../');
     require('includes/application_top.php');
     if (!defined('MODULE_PAYMENT_GOCOIN_STATUS') || (MODULE_PAYMENT_GOCOIN_STATUS != 'True')) {
+        echo '1234';
         exit;
     }
     include DIR_WS_INCLUDES . 'gocoinlib/src/GoCoin.php';
