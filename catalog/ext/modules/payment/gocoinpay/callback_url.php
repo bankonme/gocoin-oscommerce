@@ -1,5 +1,4 @@
 <?php
-
 chdir('../../../../');
 require('includes/application_top.php');
 if (!defined('MODULE_PAYMENT_GOCOIN_STATUS') || (MODULE_PAYMENT_GOCOIN_STATUS != 'True')) {
@@ -12,7 +11,7 @@ function callback() {
 
 function getNotifyData() {
     $post_data = file_get_contents("php://input");
-
+    error_log($post_data,'3','tester.log');
     if (!$post_data) {
         $response = new stdClass();
         $response->error = 'Post Data Error';
@@ -100,9 +99,9 @@ function _paymentStandard() {
 
                                         tep_db_perform(TABLE_ORDERS_STATUS_HISTORY, $sql_data_array);
 
-                                        if ($status == 'paid') {
+                                        
                                             tep_db_query("update " . TABLE_ORDERS . " set orders_status = '" . (MODULE_PAYMENT_GOCOIN_ORDER_STATUS_ID > 0 ? (int) MODULE_PAYMENT_GOCOIN_ORDER_STATUS_ID : (int) DEFAULT_ORDERS_STATUS_ID) . "', last_modified = now() where orders_id = '" . (int) $order_id . "'");
-                                        }
+                                         
                                     }
 
                                     $total_query = tep_db_query("select value from " . TABLE_ORDERS_TOTAL . " where orders_id = '" . $order_id . "' and class = 'ot_total' limit 1");
@@ -121,6 +120,7 @@ function _paymentStandard() {
                                     tep_db_perform(TABLE_ORDERS_STATUS_HISTORY, $sql_data_array);
                                 }
                             }
+                        }
                         break;
                 }
                }
