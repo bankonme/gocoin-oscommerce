@@ -20,7 +20,20 @@ class gocoinpay {
         $this->public_title = MODULE_PAYMENT_GOCOIN_TEXT_PUBLIC_TITLE;
         $this->description  = MODULE_PAYMENT_GOCOIN_TEXT_DESCRIPTION;
         $this->sort_order   = MODULE_PAYMENT_GOCOIN_SORT_ORDER;
+       
+       
+         if (PHP_VERSION < '5.3') {
+                $php_version_allowed = false ;
+         }
+         else{
+                $php_version_allowed = true ;
+         }
+         
         $this->enabled      = ((MODULE_PAYMENT_GOCOIN_STATUS == 'True') ? true : false);
+        if($php_version_allowed==false){
+            $this->enabled =false;  
+        }
+        
         // $this->baseUrl        = $this->getBaseUrl();
         if ((int) MODULE_PAYMENT_GOCOIN_DEFAULT_ORDER_STATUS_ID > 0) {
             $this->order_status = MODULE_PAYMENT_GOCOIN_DEFAULT_ORDER_STATUS_ID;
@@ -297,36 +310,50 @@ class gocoinpay {
 
  
 
-        if (empty($access_token)) {
+        if (empty($access_token)) {  //-----------If  Token not found 
             $result = 'error';
             $json['error'] = 'GoCoin Payment Paramaters not Set. Please report this to Site Administrator.';
-        } else {
+        } else {  //-----------If  Token  found 
             try {
-                $user = GoCoin::getUser($access_token);
+                $user = GoCoin::getUser($access_token); //----------- If no Error in user creation from token
                 if ($user) {
                     $merchant_id = $user->merchant_id;
-                    if (!empty($merchant_id)) {
+                    if (!empty($merchant_id)) { //----------- If merchant_id Variable is not blank 
                         $invoice = GoCoin::createInvoice($access_token, $merchant_id, $options);
-                        if (isset($invoice->errors)) {
+                        if (isset($invoice->errors)) { //----------- if $invoice->errors found 
                             $result = 'error';
-                            $json['error'] = 'GoCoin does not permit';
-                        } elseif (isset($invoice->error)) {
+                            $errormsg = isset($invoice->errors->currency_code[0])? $invoice->errors->currency_code[0] : '';
+                            $json['error'] = "Error in Processing Order using GoCoin:". $errormsg;
+                        } elseif (isset($invoice->error)) { //----------- if $invoice->error found 
                             $result = 'error';
-                            $json['error'] = $invoice->error;
+                            $json['error'] = "Error in Processing Order using GoCoin ".$invoice->error;
                         } elseif (isset($invoice->merchant_id) && $invoice->merchant_id != '' && isset($invoice->id) && $invoice->id != '') {
                             $url = $gocoin_url . $invoice->merchant_id . "/invoices/" . $invoice->id;
                             $result = 'success';
                             $messages = 'success';
                             $json['success'] = $url;
+                        }else{
+                           //-----------  if $invoice is balnk 
+                            $result = 'error';
+                            $json['error'] = "Error in Processing Order using GoCoin ";
                         }
                     }
-                } else {
-                    $result = 'error';
-                    $json['error'] = 'GoCoin Invalid Settings';
+                    else {
+                        //----------- If merchant_id Variable is blank 
+                        $result = 'error';
+                        $json['error'] =  'Error in Processing Order using GoCoin, please try selecting other payment options';
+                    }
                 }
-            } catch (Exception $e) {
+                else{
+                     //----------- If user Variable is blank 
+                        $result = 'error';
+                        $json['error'] =  'Error in Processing Order using GoCoin, please try selecting other payment options';
+               }
+            } 
+            catch (Exception $e) {
+                //----------- If  error in user creation from token
                 $result = 'error';
-                $json['error'] = 'GoCoin Invalid Settings';
+                $json['error'] = 'Error in Processing Order using GoCoin, please try selecting other payment options';
             }
         }
 
@@ -511,11 +538,23 @@ class gocoinpay {
 }
 
 function create_gocoin_token() {
-
+        if (PHP_VERSION < '5.3') {
+                $php_version_allowed = false ;
+         }
+         else{
+                $php_version_allowed = true ;
+         }
+            
+         
     $domain = ($request_type == 'SSL') ? HTTPS_SERVER : HTTP_SERVER;
     $baseUrl = $domain . DIR_WS_CATALOG;
     $str = '<input type="hidden" id="cid" value="'.MODULE_PAYMENT_GOCOIN_MERCHANT_ID.'"/>
                 <input type="hidden" id="csec" value="'.MODULE_PAYMENT_GOCOIN_ACCESS_KEY.'"/><b>you can click button to get access token from gocoin.com</b><input type="button" value="Get API TOKEN" onclick="return get_api_token();">';
+   
+    if($php_version_allowed==false){
+       $str.='<br><div style="color: #ff0000;font-weight: bold;">The minimum PHP version required for GoCoin plugin is 5.3.0 </div>'; 
+    }
+    
     $str.= '<script type="text/javascript">
             var base ="' . $baseUrl . '";
             function get_api_token()    
@@ -553,11 +592,11 @@ function create_gocoin_token() {
                     }
 
                     var currentUrl =  base+ "ext/modules/payment/gocoinpay/showtoken.php"; 
-                    alert(currentUrl);
+                    //alert(currentUrl);
                     var url = "https://dashboard.gocoin.com/auth?response_type=code"
                                 + "&client_id=" + client_id
                                 + "&redirect_uri=" + currentUrl
-                                + "&scope=user_read+merchant_read+invoice_read_write";
+                                + "&scope=user_read+invoice_read_write";
                                 
 
                     var strWindowFeatures = "location=yes,height=570,width=520,scrollbars=yes,status=yes";
